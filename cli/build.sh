@@ -5,7 +5,7 @@ mkdir -p builds
 
 # Build for Windows
 echo "Building for Windows..."
-GOOS=windows GOARCH=amd64 go build -o builds/elimt-cli.exe
+GOOS=windows GOARCH=amd64 go build -o builds/alphalab-win.exe
 if [ $? -eq 0 ]; then
     echo "✓ Windows build successful"
 else
@@ -14,7 +14,7 @@ fi
 
 # Build for macOS
 echo "Building for macOS..."
-GOOS=darwin GOARCH=amd64 go build -o builds/elimt-cli-mac
+GOOS=darwin GOARCH=amd64 go build -o builds/alphalab-mac
 if [ $? -eq 0 ]; then
     chmod +x builds/elimt-cli-mac
     echo "✓ macOS build successful"
@@ -24,7 +24,7 @@ fi
 
 # Build for Linux
 echo "Building for Linux..."
-GOOS=linux GOARCH=amd64 go build -o builds/elimt-cli-linux
+GOOS=linux GOARCH=amd64 go build -o builds/alphalab-linux
 if [ $? -eq 0 ]; then
     chmod +x builds/elimt-cli-linux
     echo "✓ Linux build successful"
