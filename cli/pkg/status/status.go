@@ -1,5 +1,0 @@
-package status
-
-func Status() {
-
-}

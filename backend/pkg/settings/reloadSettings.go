@@ -1,5 +1,0 @@
-package settings
-
-func reloadSettings() {
-
-}

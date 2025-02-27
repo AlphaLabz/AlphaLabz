@@ -1,5 +1,0 @@
-package installation
-
-func UnInstall() {
-
-}
