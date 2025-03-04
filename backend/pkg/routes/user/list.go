@@ -59,41 +59,36 @@ type userListResponse struct {
 //   - 401 Unauthorized → Missing or Invalid Authorization token
 //   - 500 Internal Server Error → Server issue
 func HandleUserList(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer) {
-	var permissionConfig = casbin.PermissionConfig{
-		Resources: "users",
-		Actions:   "list",
-	}
-
 	// Check if the request method is GET
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Get token from request header
-	rawJwtToken, err := tools.TokenExtractor(r.Header.Get("Authorization"))
+	// Extract the authorization token from the request header
+	rawToken, err := tools.TokenExtractor(r.Header.Get("Authorization"))
 	if err != nil {
 		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
 
-	userRole, err := pbClient.FetchUserRole(rawJwtToken)
+	userId, err := tools.GetUserIdFromJWT(rawToken)
 	if err != nil {
-		http.Error(w, "Failed to fetch user role", http.StatusInternalServerError)
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
 
-	scopes, err := ce.CheckPermissionScopes(userRole.RoleId, permissionConfig.Resources, permissionConfig.Actions)
+	// Fetch user permissions based on the authorization token
+	scopes, err := ce.ScopeFetcher(pbClient, userId, casbin.PermissionConfig{
+		Resources: "users",
+		Actions:   "list",
+	})
 	if err != nil {
-		http.Error(w, "Failed to check permission", http.StatusInternalServerError)
-	} else {
-		if len(scopes) == 0 {
-			http.Error(w, "No permission to access", http.StatusUnauthorized)
-			return
-		}
+		http.Error(w, "Failed to fetch user permissions", http.StatusInternalServerError)
+		return
 	}
 
-	userList, TotalUsers, err := pbClient.ListUsers(scopes)
+	userList, TotalUsers, err := pbClient.ListUsers(scopes, []string{}, "")
 	if err != nil {
 		http.Error(w, "Failed to fetch users", http.StatusInternalServerError)
 		return

@@ -2,7 +2,7 @@ FROM alpine:3.18
 
 WORKDIR /pb
 
-RUN apk add --no-cache bash
+RUN apk add --no-cache bash curl
 
 COPY pocketbase /pb/pocketbase
 COPY init-pocketbase.sh /pb/init-pocketbase.sh

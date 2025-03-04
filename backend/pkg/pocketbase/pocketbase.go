@@ -7,20 +7,24 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/patrickmn/go-cache"
 )
 
 // PocketBaseClient interacts with the PocketBase HTTP API
 type PocketBaseClient struct {
-	BaseURL    string
-	SuperToken string
-	HTTPClient *http.Client
+	BaseURL       string
+	SuperToken    string
+	HTTPClient    *http.Client
+	UserInfoCache *cache.Cache
 }
 
 // NewPocketBase initializes a new PocketBase client, authenticates, and verifies the connection.
 func NewPocketBase(baseURL, superuserEmail, superuserPassword string, maxRetries int, retryInterval time.Duration) (*PocketBaseClient, error) {
 	client := &PocketBaseClient{
-		BaseURL:    baseURL,
-		HTTPClient: &http.Client{Timeout: 10 * time.Second},
+		BaseURL:       baseURL,
+		HTTPClient:    &http.Client{Timeout: 10 * time.Second},
+		UserInfoCache: cache.New(30*time.Minute, 60*time.Minute),
 	}
 
 	// Verify PocketBase connection with retries before proceeding to authentication
@@ -166,6 +170,7 @@ func (pbClient *PocketBaseClient) CheckConnection() error {
 	return nil
 }
 
+// Start a goroutine to automatically renew the superuser token every 30 days.
 func (pbClient *PocketBaseClient) StartSuperTokenAutoRenew(superuserEmail, superuserPassword string) {
 	interval := 24*30*time.Hour - 1*time.Hour // 30 days
 	go func() {

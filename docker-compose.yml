@@ -6,6 +6,9 @@ services:
       dockerfile: Dockerfile.pb
     ports:
       - "8090:8090"
+      - "25:25"
+      - "465:465"
+      - "587:587"
     volumes:
       - ./database/pb_data:/pb/pb_data
       - ./database/pb_hooks:/pb/pb_hooks

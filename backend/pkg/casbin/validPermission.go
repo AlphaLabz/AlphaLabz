@@ -1,50 +1,83 @@
 package casbin
 
 import (
+	"alphalabz/pkg/pocketbase"
+	"alphalabz/pkg/tools"
 	"fmt"
 )
 
 // CheckPermission validates user actions using Casbin
-func (ce *CasbinEnforcer) VerifyPermission(roleId, resource, action, scope string) (bool, error) {
+//
+// Require Resources, Actions and Scopes to be provided in PermissionConfig
+func (ce *CasbinEnforcer) VerifyJWTPermission(pbClient *pocketbase.PocketBaseClient, rawJwtToken string, permissionConfig PermissionConfig) (reqPermission bool, starPermission bool, err error) {
 	if ce.Enforcer == nil {
-		return false, fmt.Errorf("casbin Enforcer is not initialized")
+		return false, false, fmt.Errorf("casbin Enforcer is not initialized")
 	}
 
-	ok, err := ce.Enforcer.Enforce(roleId, resource, action, scope)
+	userId, err := tools.GetUserIdFromJWT(rawJwtToken)
+	if err != nil {
+		return false, false, nil
+	}
+	userRole, err := pbClient.ViewUser(userId)
+	if err != nil {
+		return false, false, nil
+	}
+
+	// Check if the user has the '*' scope (unrestricted access).
+	starScopeCheck, err := ce.Enforcer.Enforce(userRole.RoleId, permissionConfig.Resources, permissionConfig.Actions, "*")
 	if err != nil {
 		fmt.Println("Error enforcing policy:", err)
-		return false, err
+		return false, false, err
 	}
-	return ok, nil
+
+	// Check permission using the specified scope.
+	reqPermissionCheck, err := ce.Enforcer.Enforce(userRole.RoleId, permissionConfig.Resources, permissionConfig.Actions, permissionConfig.Scopes)
+	if err != nil {
+		fmt.Println("Error enforcing policy:", err)
+		return false, false, err
+	}
+
+	hasPermission, starPermission := permissionReturn(reqPermissionCheck, starScopeCheck)
+
+	return hasPermission, starPermission, nil
 }
 
-// CheckPermissionScopes retrieves all scopes a user has for a given resource and action
-func (ce *CasbinEnforcer) CheckPermissionScopes(roleId, resource, action string) ([]string, error) {
+// CheckPermission validates user actions using Casbin
+//
+// Require Resources, Actions and Scopes to be provided in PermissionConfig
+func (ce *CasbinEnforcer) VerifyUserIdPermission(pbClient *pocketbase.PocketBaseClient, userId string, permissionConfig PermissionConfig) (reqPermission bool, starPermission bool, err error) {
 	if ce.Enforcer == nil {
-		return nil, fmt.Errorf("casbin Enforcer is not initialized")
+		return false, false, fmt.Errorf("casbin Enforcer is not initialized")
 	}
 
-	// Retrieve all policies in Casbin
-	allPolicies, err := ce.Enforcer.GetPolicy()
+	userRole, err := pbClient.ViewUser(userId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve policies: %v", err)
+		return false, false, nil
 	}
 
-	// Store valid scopes for this user/resource/action
-	var scopes []string
-
-	// Iterate through all Casbin policies
-	for _, policy := range allPolicies {
-		// Policy format: [roleId, resource, action, scope]
-		if len(policy) == 4 && policy[0] == roleId && policy[1] == resource && policy[2] == action {
-			scopes = append(scopes, policy[3]) // Collect the allowed scopes
-		}
+	// Check if the user has the '*' scope (unrestricted access).
+	starScopeCheck, err := ce.Enforcer.Enforce(userRole.RoleId, permissionConfig.Resources, permissionConfig.Actions, "*")
+	if err != nil {
+		fmt.Println("Error enforcing policy:", err)
+		return false, false, err
 	}
 
-	// If no scopes were found, return an error
-	if len(scopes) == 0 {
-		return nil, fmt.Errorf("no scopes found for user role: %s, resource: %s, action: %s", roleId, resource, action)
+	// Check permission using the specified scope.
+	reqPermissionCheck, err := ce.Enforcer.Enforce(userRole.RoleId, permissionConfig.Resources, permissionConfig.Actions, permissionConfig.Scopes)
+	if err != nil {
+		fmt.Println("Error enforcing policy:", err)
+		return false, false, err
 	}
 
-	return scopes, nil
+	hasPermission, starPermission := permissionReturn(reqPermissionCheck, starScopeCheck)
+
+	return hasPermission, starPermission, nil
+}
+
+func permissionReturn(reqScopeBool, starScopeBool bool) (hasPermission bool, starPermission bool) {
+	if starScopeBool {
+		return true, true
+	}
+
+	return reqScopeBool, false
 }
