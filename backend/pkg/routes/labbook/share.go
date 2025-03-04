@@ -14,6 +14,33 @@ type ShareRequest struct {
 	RecipientId string `json:"recipient_id"`
 }
 
+// Share Lab Book
+// Only users with the update:"share" permission on the "lab_books" resource can share a lab book with another user.
+//
+// ✅ Authorization:
+// Requires an `Authorization` header with a valid token.
+//
+// ✅ HTTP Method: `POST`
+//
+// ✅ Request Body: `Content-Type: application/json`
+// - Fields:
+//   - `LabbookId` (string, required) → The ID of the lab book to be shared.
+//   - `RecipientId` (string, required) → The ID of the user receiving access to the lab book.
+//
+// ✅ Successful Response (200 OK):
+//
+//	{
+//	    "message": "Labbook shared successfully"
+//	}
+//
+// ❌ Error Responses:
+//   - 400 Bad Request → Missing required fields or invalid request body format.
+//   - 401 Unauthorized → Missing or Invalid Authorization token.
+//   - 403 Forbidden → User does not have the required permissions.
+//   - 405 Method Not Allowed → Invalid HTTP method (only POST is allowed).
+//   - 404 Not Found → Recipient does not exist.
+//   - 409 Conflict → Recipient already has access to the lab book.
+//   - 500 Internal Server Error → Server issue or database operation failure.
 func HandleShareLabbook(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer) {
 	// Check if the request method is POST
 	if r.Method != http.MethodPost {
@@ -95,6 +122,22 @@ func HandleShareLabbook(w http.ResponseWriter, r *http.Request, pbClient *pocket
 	json.NewEncoder(w).Encode(map[string]string{"message": "Labbook shared successfully"})
 }
 
+// Get Shared Lab Books List
+// Only users with the view:"shared" permission on the "lab_books" resource can retrieve the list of lab books that have been shared with them.
+//
+// ✅ Authorization:
+// Requires an `Authorization` header with a valid token.
+//
+// ✅ HTTP Method: `GET`
+//
+// ✅ Successful Response (200 OK):
+// Returns a JSON array containing the lab books that have been shared with the authenticated user.
+//
+// ❌ Error Responses:
+//   - 401 Unauthorized → Missing or invalid Authorization token.
+//   - 403 Forbidden → User does not have the required permissions.
+//   - 405 Method Not Allowed → Invalid HTTP method (only GET is allowed).
+//   - 500 Internal Server Error → Server issue or failure in retrieving shared lab books.
 func GetSharedList(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

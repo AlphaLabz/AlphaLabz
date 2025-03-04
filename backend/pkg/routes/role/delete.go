@@ -9,6 +9,30 @@ import (
 	"net/http"
 )
 
+// Delete a Role
+// Only users with the delete:"custom" permission on the "roles" resource can delete a role.
+//
+// ✅ Authorization:
+// Requires an `Authorization` header with a valid token.
+//
+// ✅ HTTP Method: `DELETE`
+//
+// ✅ URL Parameter:
+//   - `id` (string, required) → The ID of the role to be deleted.
+//
+// ✅ Successful Response (200 OK):
+//
+//	{
+//	    "message": "Role deleted successfully"
+//	}
+//
+// ❌ Error Responses:
+//   - 400 Bad Request → Invalid role ID or attempt to delete a system role.
+//   - 401 Unauthorized → Missing or Invalid Authorization token.
+//   - 403 Forbidden → User does not have the required permissions.
+//   - 404 Not Found → Role does not exist.
+//   - 405 Method Not Allowed → Invalid HTTP method (only DELETE is allowed).
+//   - 500 Internal Server Error → Server issue or failure deleting the role.
 func HandleDeleteRole(w http.ResponseWriter, r *http.Request, id string, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

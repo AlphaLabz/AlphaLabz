@@ -23,7 +23,7 @@ type NewRoleRequest struct {
 	Type        string      `json:"type"`
 }
 
-// Get all available roles in the database
+// ListRoles retrieves all roles from the PocketBase database.
 func (pbClient *PocketBaseClient) ListRoles(fields []string, filter string) (roles []Role, err error) {
 	url := fmt.Sprintf("%s/api/collections/roles/records", pbClient.BaseURL)
 	// Add fields as query parameters if specified
@@ -65,6 +65,7 @@ func (pbClient *PocketBaseClient) ListRoles(fields []string, filter string) (rol
 	return roleListResp.Items, nil
 }
 
+// CreateRole creates a new role in PocketBase.
 func (pbClient *PocketBaseClient) CreateRole(role NewRoleRequest) error {
 	url := fmt.Sprintf("%s/api/collections/roles/records", pbClient.BaseURL)
 
@@ -103,6 +104,7 @@ func (pbClient *PocketBaseClient) CreateRole(role NewRoleRequest) error {
 
 // }
 
+// DeleteRole deletes a role by its ID.
 func (pbClient *PocketBaseClient) DeleteRole(roleId string) error {
 	url := fmt.Sprintf("%s/api/collections/roles/records/%s", pbClient.BaseURL, roleId)
 

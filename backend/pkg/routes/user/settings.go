@@ -11,6 +11,31 @@ import (
 	"os"
 )
 
+// Update User Settings
+// Only users with the update:"own" permission on the "users" resource can update their personal settings.
+//
+// ✅ Authorization:
+// Requires an `Authorization` header with a valid token.
+//
+// ✅ HTTP Method: `PATCH`
+//
+// ✅ Request Body: `Content-Type: application/json`
+// - Fields:
+//   - `AppLanguage` (string, required) → The preferred application language (must be a valid language code).
+//   - `Theme` (string, required) → The UI theme preference; allowed values: `"dark"`, `"light"`.
+//
+// ✅ Successful Response (200 OK):
+//
+//	{
+//	    "message": "Settings updated successfully"
+//	}
+//
+// ❌ Error Responses:
+//   - 400 Bad Request → Missing required fields, invalid theme value, or unsupported language code.
+//   - 401 Unauthorized → Missing or Invalid Authorization token.
+//   - 403 Forbidden → User does not have the required permissions.
+//   - 405 Method Not Allowed → Invalid HTTP method (only PATCH is allowed).
+//   - 500 Internal Server Error → Server issue, failure retrieving user data, or updating settings.
 func HandlUpdateSettings(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer) {
 	// Constrain request method
 	if r.Method != http.MethodPatch {

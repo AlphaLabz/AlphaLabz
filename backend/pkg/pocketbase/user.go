@@ -320,6 +320,7 @@ func (pbClient *PocketBaseClient) UpdateSettings(settingsId string, newSettings 
 	return nil
 }
 
+// DeleteUser deletes a user by their ID.
 func (pbClient *PocketBaseClient) DeleteUser(userId string) error {
 	url := fmt.Sprintf("%s/api/collections/users/records/%s", pbClient.BaseURL, userId)
 
@@ -341,6 +342,7 @@ func (pbClient *PocketBaseClient) DeleteUser(userId string) error {
 	return nil
 }
 
+// CheckUserExists checks if a user exists by their ID.
 func (pbClient *PocketBaseClient) CheckUserExists(userId string) (bool, error) {
 	url := fmt.Sprintf("%s/api/collections/users/records/%s", pbClient.BaseURL, userId)
 

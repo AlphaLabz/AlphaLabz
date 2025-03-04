@@ -47,5 +47,4 @@ func HandleLabBookView(w http.ResponseWriter, r *http.Request, labbookId string,
 	} else {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 	}
-
 }

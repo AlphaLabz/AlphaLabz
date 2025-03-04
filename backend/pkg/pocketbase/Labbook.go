@@ -139,6 +139,7 @@ func (pbClient *PocketBaseClient) UpdateLabbook(id string, data map[string]inter
 	return nil
 }
 
+// ListLabbooks retrieves a list of lab book records from PocketBase.
 func (pbClient *PocketBaseClient) ListLabbooks(filter string, fileds []string) ([]Labbook, error) {
 	url := fmt.Sprintf("%s/api/collections/lab_books/records?fields=%s&filter=(%s)", pbClient.BaseURL, strings.Join(fileds, ","), filter)
 
@@ -194,11 +195,12 @@ func (pbClient *PocketBaseClient) ViewLabbook(id string, fileds []string) (Labbo
 	return labbook, nil
 }
 
+// ShareLabbook updates the share_with field of a lab book record in PocketBase.
 func (pbClient *PocketBaseClient) ShareLabbook(id string, RecipientId string, accessList []string) error {
 	url := fmt.Sprintf("%s/api/collections/lab_books/records/%s", pbClient.BaseURL, id)
 
 	data := map[string]interface{}{
-		"share_to": RecipientId,
+		"share_with": RecipientId,
 	}
 
 	body, err := json.Marshal(data)

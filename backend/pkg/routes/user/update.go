@@ -12,6 +12,32 @@ import (
 	"time"
 )
 
+// Update User Profile
+// Only users with the update:"own" permission on the "users" resource can update their personal profile information.
+//
+// ✅ Authorization:
+// Requires an `Authorization` header with a valid token.
+//
+// ✅ HTTP Method: `PATCH`
+//
+// ✅ Request Body: `Content-Type: application/json`
+// - Fields:
+//   - `name` (string, optional) → The user's full name.
+//   - `gender` (string, optional) → The user's gender; allowed values: `"Male"`, `"Female"`, `"Others"`, `""` (empty string).
+//   - `birthdate` (string, optional) → The user's birth date in `"yyyy-mm-dd"` format.
+//
+// ✅ Successful Response (200 OK):
+//
+//	{
+//	    "message": "User account info updated successfully"
+//	}
+//
+// ❌ Error Responses:
+//   - 400 Bad Request → Invalid request body, unsupported gender value, or incorrect date format.
+//   - 401 Unauthorized → Missing or Invalid Authorization token.
+//   - 403 Forbidden → User does not have the required permissions.
+//   - 405 Method Not Allowed → Invalid HTTP method (only PATCH is allowed).
+//   - 500 Internal Server Error → Server issue or failure updating user profile.
 func HandlUpdateProfile(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer) {
 	if r.Method != http.MethodPatch {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -73,6 +99,31 @@ func HandlUpdateProfile(w http.ResponseWriter, r *http.Request, pbClient *pocket
 	w.Write([]byte("User account info updated successfully"))
 }
 
+// Update User Avatar
+// Only users with the update:"own" permission on the "users" resource can update their avatar.
+//
+// ✅ Authorization:
+// Requires an `Authorization` header with a valid token.
+//
+// ✅ HTTP Method: `PATCH`
+//
+// ✅ Request Body: `Content-Type: multipart/form-data`
+// - Fields:
+//   - `avatar` (file, required) → The image file for the avatar. Allowed formats: JPEG, JPG, PNG, GIF, HEIC, HEIF, WEBP, SVG.
+//
+// ✅ Successful Response (200 OK):
+//
+//	{
+//	    "message": "Avatar updated successfully"
+//	}
+//
+// ❌ Error Responses:
+//   - 400 Bad Request → Missing file, invalid content type, or file upload failure.
+//   - 401 Unauthorized → Missing or Invalid Authorization token.
+//   - 403 Forbidden → User does not have the required permissions.
+//   - 405 Method Not Allowed → Invalid HTTP method (only PATCH is allowed).
+//   - 415 Unsupported Media Type → Invalid file format (not an allowed image type).
+//   - 500 Internal Server Error → Server issue or failure updating the avatar.
 func HandleUpdateAvatar(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer) {
 	if r.Method != http.MethodPatch {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)

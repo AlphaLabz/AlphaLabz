@@ -233,6 +233,23 @@ func HandleLabBookUpload(w http.ResponseWriter, r *http.Request, pbClient *pocke
 	})
 }
 
+// View Lab Book Upload History
+// Only users with the view:"own" permission on the "lab_books" resource can retrieve their lab book upload history.
+//
+// ✅ Authorization:
+// Requires an `Authorization` header with a valid token.
+//
+// ✅ HTTP Method: `GET`
+//
+// ✅ Successful Response (200 OK):
+// Returns the list of lab book upload history for the authenticated user in JSON format.
+//
+// ❌ Error Responses:
+//   - 400 Bad Request → Missing or invalid request parameters.
+//   - 401 Unauthorized → Missing or invalid Authorization token.
+//   - 403 Forbidden → User does not have the required permissions.
+//   - 405 Method Not Allowed → Invalid HTTP method (only GET is allowed).
+//   - 500 Internal Server Error → Server issue or database retrieval error.
 func HandleLabbookUploadHistory(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

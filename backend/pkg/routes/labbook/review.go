@@ -17,6 +17,33 @@ type labbookReviewRequest struct {
 	Comment   string `json:"comment"`
 }
 
+// Review Lab Book
+// Only users with the update:"status" permission on the "lab_books" resource can review and update the status of a lab book.
+//
+// ✅ Authorization:
+// Requires an `Authorization` header with a valid token.
+//
+// ✅ HTTP Method: `PATCH`
+//
+// ✅ Request Body: `Content-Type: application/json`
+// - Fields:
+//   - `LabbookId` (string, required) → The ID of the lab book being reviewed.
+//   - `Status` (string, required) → The new review status; allowed values: `"approved"`, `"rejected"`.
+//   - `Comment` (string, optional) → Additional comments for the review.
+//
+// ✅ Successful Response (200 OK):
+//
+//	{
+//	    "message": "Lab book review updated successfully"
+//	}
+//
+// ❌ Error Responses:
+//   - 400 Bad Request → Missing required fields or invalid request body format.
+//   - 401 Unauthorized → Missing or Invalid Authorization token.
+//   - 403 Forbidden → User does not have the required permissions or is not the assigned reviewer.
+//   - 405 Method Not Allowed → Invalid HTTP method (only PATCH is allowed).
+//   - 409 Conflict → Lab book has already been reviewed.
+//   - 500 Internal Server Error → Server issue or database
 func HandleLabBookReview(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer) {
 	// Check if the request method is PATCH
 	if r.Method != http.MethodPatch {
@@ -93,6 +120,32 @@ func HandleLabBookReview(w http.ResponseWriter, r *http.Request, pbClient *pocke
 	json.NewEncoder(w).Encode(map[string]string{"message": "Lab book review updated successfully"})
 }
 
+// Get Available Reviewers
+// Only users with the create:"own" permission on the "lab_books" resource can retrieve the list of users eligible to review lab books.
+//
+// ✅ Authorization:
+// Requires an `Authorization` header with a valid token.
+//
+// ✅ HTTP Method: `GET`
+//
+// ✅ Successful Response (200 OK):
+// Returns a JSON object containing a list of available reviewers with their IDs, names, and roles.
+//
+// Example Response:
+//
+//	{
+//	    "message": "success",
+//	    "reviewers": [
+//	        {"id": "123", "name": "John Doe", "role": "Senior Reviewer"},
+//	        {"id": "456", "name": "Jane Smith", "role": "Lead Scientist"}
+//	    ]
+//	}
+//
+// ❌ Error Responses:
+//   - 401 Unauthorized → Missing or invalid Authorization token.
+//   - 403 Forbidden → User does not have the required permissions.
+//   - 405 Method Not Allowed → Invalid HTTP method (only GET is allowed).
+//   - 500 Internal Server Error → Server issue or failure retrieving available reviewers.
 func GetAvailiableReviewers(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer) {
 	// Check if the request method is GET.
 	if r.Method != http.MethodGet {
@@ -146,6 +199,39 @@ func GetAvailiableReviewers(w http.ResponseWriter, r *http.Request, pbClient *po
 	json.NewEncoder(w).Encode(map[string]interface{}{"message": "success", "reviewers": reviewers})
 }
 
+// Get Pending Lab Book Reviews
+// Only users with the update:"review" permission on the "lab_books" resource can retrieve lab books pending their review.
+//
+// ✅ Authorization:
+// Requires an `Authorization` header with a valid token.
+//
+// ✅ HTTP Method: `GET`
+//
+// ✅ Successful Response (200 OK):
+// Returns a JSON array containing the lab books assigned to the user that are pending review.
+//
+// Example Response:
+//
+//	[
+//	    {
+//	        "id": "labbook123",
+//	        "title": "Chemistry Experiment 1",
+//	        "creator": "user456",
+//	        "review_status": "pending"
+//	    },
+//	    {
+//	        "id": "labbook789",
+//	        "title": "Physics Research Notes",
+//	        "creator": "user321",
+//	        "review_status": "pending"
+//	    }
+//	]
+//
+// ❌ Error Responses:
+//   - 401 Unauthorized → Missing or invalid Authorization token.
+//   - 403 Forbidden → User does not have the required permissions.
+//   - 405 Method Not Allowed → Invalid HTTP method (only GET is allowed).
+//   - 500 Internal Server Error → Server issue or failure retrieving pending lab book reviews.
 func GetPendingReviews(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
