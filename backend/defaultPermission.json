@@ -1,0 +1,33 @@
+{
+    "users": ["view:own", "list:id,name,email", "update:own"],
+    "roles": ["view:own"],
+    "lab_books": [
+        "view:own,shared",
+        "list:own,shared",
+        "update:own",
+        "create:own"
+    ],
+    "resources": [
+        "view:own,public,shared",
+        "list:own,public,shared",
+        "update:own,public",
+        "create:own,public",
+        "delete:own"
+    ],
+    "schedules": [
+        "view:own,shared,participated",
+        "list:own,shared,participated",
+        "update:own",
+        "create:own",
+        "delete:own"
+    ],
+    "links": [
+        "view:own,public",
+        "list:own,public",
+        "update:own",
+        "create:own",
+        "delete:own"
+    ],
+    "user_settings": ["view:own", "update:own"],
+    "app_settings": ["view:own", "update:own"]
+}

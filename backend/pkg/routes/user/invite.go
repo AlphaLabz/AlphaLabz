@@ -9,28 +9,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type newUserReq struct {
-	Email    string `json:"email"`
-	RoleName string `json:"role_name"`
+type Invitee struct {
+	Email  string `json:"email"`
+	RoleId string `json:"role_id"`
 }
 
-type InviteeJWTClaims struct {
-	Email    string `json:"email"`
-	RoleName string `json:"role_name"`
-	RoleId   string `json:"role_id"`
-}
-
-type inviteResp struct {
-	Link string `json:"link"`
-}
-
-// Invite a New User
+// Invite a New User.
 // Only users with the appropriate permissions can invite new users.
 //
 // ✅ Authorization:
@@ -41,7 +30,7 @@ type inviteResp struct {
 //
 //	{
 //	    "email": "test@example.com",
-//	    "role_name": "user" // Allowed values depend on available roles, excluding "admin"
+//	    "role_id": "0003" // Allowed values depend on available roles, excluding "0001"
 //	}
 //
 // ✅ Successful Response (200 OK):
@@ -58,95 +47,98 @@ type inviteResp struct {
 //   - 405 Method Not Allowed → Request method is not POST
 //   - 500 Internal Server Error → Server issue or failure in generating invite link
 func HandleInviteNewUser(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.PocketBaseClient, ce *casbin.CasbinEnforcer, sc *smtp.SMTPClient) {
-	var permissionConfig = casbin.PermissionConfig{
-		Resources: "users",
-		Actions:   "create",
-	}
-
 	// Constrain request method
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Parse requester JWT
-	rawJwtToken, err := tools.TokenExtractor(r.Header.Get("Authorization"))
+	// Extract token from header and validate it
+	rawToken, err := tools.TokenExtractor(r.Header.Get("Authorization"))
 	if err != nil {
 		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
 
 	// Parse request body
-	var inviteData newUserReq
+	var inviteData Invitee
 	if err := json.NewDecoder(r.Body).Decode(&inviteData); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Obtain uesr role
-	userRole, err := pbClient.FetchUserRole(rawJwtToken)
+	if inviteData.Email == "" || inviteData.RoleId == "" {
+		http.Error(w, "Email and name are required", http.StatusBadRequest)
+		return
+	}
+
+	// Get available roles
+	roles, err := pbClient.ListRoles([]string{"id", "name", "type"}, "")
 	if err != nil {
-		http.Error(w, "Failed to fetch user role", http.StatusInternalServerError)
+		http.Error(w, "Failed to get available roles", http.StatusInternalServerError)
 		return
 	}
 
-	// Forbidden any creation of admin account
-	if strings.ToLower(inviteData.RoleName) == "admin" {
-		http.Error(w, "You can't create an admin account", http.StatusForbidden)
-		return
-	}
-
-	// Check request role exist
-	roles, err := pbClient.GetAvailableRoles([]string{"id", "name"})
-	if err != nil {
-		http.Error(w, "Failed to fetch available roles", http.StatusInternalServerError)
-		return
-	}
-
-	var invitee InviteeJWTClaims
+	// Check if role exists
 	roleExists := false
 	for _, role := range roles {
-		if strings.EqualFold(role.Name, inviteData.RoleName) {
+		if role.Id == inviteData.RoleId {
 			roleExists = true
-			invitee = InviteeJWTClaims{
-				Email:    inviteData.Email,
-				RoleName: role.Name,
-				RoleId:   role.Id,
-			}
 			break
 		}
 	}
-
 	if !roleExists {
-		http.Error(w, "Role not found", http.StatusNotFound)
+		http.Error(w, "Role not found", http.StatusBadRequest)
 		return
 	}
 
-	notAdminPermission, err := ce.VerifyPermission(userRole.RoleId, permissionConfig.Resources, permissionConfig.Actions, "notAdmin")
+	userId, err := tools.GetUserIdFromJWT(rawToken)
 	if err != nil {
-		http.Error(w, "Failed to verify permission", http.StatusInternalServerError)
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
 
-	if notAdminPermission {
-		sendInviteResponse(w, invitee)
-		return
-	}
-
-	rolePermission, err := ce.VerifyPermission(userRole.RoleId, permissionConfig.Resources, permissionConfig.Actions, invitee.RoleName)
+	// Grant user scopes
+	scopes, err := ce.ScopeFetcher(pbClient, userId, casbin.PermissionConfig{
+		Resources: "users",
+		Actions:   "create",
+	})
 	if err != nil {
-		http.Error(w, "Failed to verify permission", http.StatusInternalServerError)
+		http.Error(w, "Failed to fetch user scopes", http.StatusInternalServerError)
 		return
 	}
 
-	if rolePermission {
-		sendInviteResponse(w, invitee)
+	// Check if user is authorized to create this role
+	if inviteData.RoleId == "0001" {
+		http.Error(w, "Unauthorized to create this role", http.StatusForbidden)
+		return
 	} else {
-		http.Error(w, "You don't have permission to create this role", http.StatusForbidden)
+		var inviteeData = Invitee{
+			RoleId: inviteData.RoleId,
+			Email:  inviteData.Email,
+		}
+		if tools.Contains(scopes, "*") {
+			// Allow user to create all other roles
+			sendInviteResponse(w, inviteeData)
+			return
+		}
+
+		if tools.Contains(scopes, inviteData.RoleId) {
+			// Allow user to create this role
+			sendInviteResponse(w, inviteeData)
+			return
+		}
+
+		if !tools.Contains(scopes, inviteData.RoleId) && !tools.Contains(scopes, "*") {
+			http.Error(w, "Unauthorized to create this role", http.StatusForbidden)
+			return
+		}
+
 	}
+
 }
 
-func sendInviteResponse(w http.ResponseWriter, invitee InviteeJWTClaims) {
+func sendInviteResponse(w http.ResponseWriter, invitee Invitee) {
 	inviteLink, err := generateInvitation(invitee)
 	if err != nil {
 		http.Error(w, "Failed to generate invitation link", http.StatusInternalServerError)
@@ -154,12 +146,10 @@ func sendInviteResponse(w http.ResponseWriter, invitee InviteeJWTClaims) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(inviteResp{inviteLink}); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	json.NewEncoder(w).Encode(map[string]string{"invite_link": inviteLink})
 }
 
-func generateInvitation(invitee InviteeJWTClaims) (inviteLink string, err error) {
+func generateInvitation(invitee Invitee) (inviteLink string, err error) {
 	// Get JWT secret from settings
 	settings, err := settings.LoadSettings("settings.yml")
 	if err != nil {
@@ -175,10 +165,9 @@ func generateInvitation(invitee InviteeJWTClaims) (inviteLink string, err error)
 		secretKey := []byte(inviteSecret)
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256,
 			jwt.MapClaims{
-				"email":     invitee.Email,
-				"role_id":   invitee.RoleId,
-				"role_name": invitee.RoleName,
-				"exp":       time.Now().Add(time.Hour * 24).Unix(),
+				"email":   invitee.Email,
+				"role_id": invitee.RoleId,
+				"exp":     time.Now().Add(time.Hour * 24).Unix(),
 			})
 
 		tokenString, err := token.SignedString(secretKey)

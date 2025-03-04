@@ -5,7 +5,10 @@ import (
 	"strings"
 )
 
-// TokenExtractor extracts the token from the Authorization header.
+// TokenExtractor extracts the token from a full authorization header string.
+//
+// It expects the header to be in the format "Bearer <token>".
+// If the header is empty or not in the correct format, it returns an error.
 func TokenExtractor(fullToken string) (string, error) {
 	if fullToken == "" {
 		return "", errors.New("missing authorization header")

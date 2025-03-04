@@ -4,10 +4,10 @@ import (
 	"alphalabz/pkg/casbin"
 	"alphalabz/pkg/pocketbase"
 	"alphalabz/pkg/settings"
+	"alphalabz/pkg/tools"
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"time"
@@ -20,11 +20,9 @@ import (
 // ✅ Description:
 // - Allows a new user to register in the system using a form submission.
 //
-// ✅ Authorization:
-// - Requires an `Authorization` header with a valid token.
-//
 // ✅ Request Body:
 // - `Content-Type: multipart/form-data`
+//
 // - Fields:
 //   - `token` (string, required) → JWT token for authentication.
 //   - `username` (string, required) → The desired username.
@@ -80,7 +78,7 @@ func HandleSignUp(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.P
 	}
 
 	// Parse JWT token
-	roleId, _, email, err := parseJWT(token)
+	roleId, email, err := parseJWT(token)
 	if err != nil {
 		http.Error(w, "Invalid token", http.StatusBadRequest)
 		return
@@ -107,7 +105,7 @@ func HandleSignUp(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.P
 		return
 	}
 
-	// Obtain the img that upload from the user
+	// Check if the user has uploaded an avatar and validate it
 	var allowedMimeTypes = map[string]bool{
 		"image/jpeg":    true,
 		"image/jpg":     true,
@@ -130,7 +128,7 @@ func HandleSignUp(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.P
 	} else {
 		defer file.Close()
 
-		uploadDir := "./uploads/"
+		uploadDir := "./uploads/avatar/"
 		os.MkdirAll(uploadDir, 0755)
 		filePath = uploadDir + fmt.Sprintf("%d_%s", time.Now().Unix(), handler.Filename)
 
@@ -156,7 +154,7 @@ func HandleSignUp(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.P
 		}
 		defer savedFile.Close()
 
-		mimeType, err := checkMimeType(savedFile)
+		mimeType, err := tools.CheckMimeType(savedFile)
 		if err != nil || !allowedMimeTypes[mimeType] {
 			os.Remove(filePath) // Delete the file if it's not an allowed mime type
 			http.Error(w, "Invalid file format", http.StatusUnsupportedMediaType)
@@ -175,7 +173,7 @@ func HandleSignUp(w http.ResponseWriter, r *http.Request, pbClient *pocketbase.P
 	json.NewEncoder(w).Encode(map[string]string{"message": "User created successfully"})
 }
 
-func parseJWT(tokenString string) (roleId, roleName, email string, err error) {
+func parseJWT(tokenString string) (roleId, email string, err error) {
 	claims := jwt.MapClaims{}
 
 	tokenParsed, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
@@ -195,33 +193,17 @@ func parseJWT(tokenString string) (roleId, roleName, email string, err error) {
 	})
 
 	if err != nil || !tokenParsed.Valid {
-		return "", "", "", fmt.Errorf("invalid token")
+		return "", "", fmt.Errorf("invalid token")
 	}
 
 	// Extract claims with type assertion
 	var ok bool
 	if email, ok = claims["email"].(string); !ok {
-		return "", "", "", fmt.Errorf("invalid token: missing email claim")
+		return "", "", fmt.Errorf("invalid token: missing email claim")
 	}
 	if roleId, ok = claims["role_id"].(string); !ok {
-		return "", "", "", fmt.Errorf("invalid token: missing role_id claim")
-	}
-	if roleName, ok = claims["role_name"].(string); !ok {
-		return "", "", "", fmt.Errorf("invalid token: missing role_name claim")
+		return "", "", fmt.Errorf("invalid token: missing role_id claim")
 	}
 
-	return roleId, roleName, email, nil
-}
-
-func checkMimeType(file multipart.File) (string, error) {
-	// Read 512 bit of the file
-	buf := make([]byte, 512)
-	_, err := file.Read(buf)
-	if err != nil {
-		return "", err
-	}
-	// reset
-	file.Seek(0, 0)
-	mimeType := http.DetectContentType(buf)
-	return mimeType, nil
+	return roleId, email, nil
 }
